@@ -13,6 +13,8 @@ export interface ChoreZone {
   name: string;
   emoji: string;
   is_active: boolean;
+  is_fixed: boolean;
+  rotation_slot: number | null;
   sort_order: number;
   created_at: string;
 }
