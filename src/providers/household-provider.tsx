@@ -76,7 +76,7 @@ export function HouseholdProvider({ children }: { children: ReactNode }) {
 
   const currentMember = members.find((m) => m.id === user?.id) ?? null;
   const partner = members.find((m) => m.id !== user?.id) ?? null;
-  const isLoading = profileLoading || householdLoading || membersLoading;
+  const isLoading = profileLoading || (!!householdId && (householdLoading || membersLoading));
 
   return (
     <HouseholdContext.Provider

@@ -20,6 +20,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       router.replace("/login");
       return;
     }
+    // Solo redirigir si el profile cargó completamente y no tiene hogar
     if (!hasHousehold) {
       router.replace("/onboarding");
     }
