@@ -29,23 +29,26 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/registro") ||
-    request.nextUrl.pathname.startsWith("/onboarding");
+  const isPublicRoute = request.nextUrl.pathname.startsWith("/login") ||
+    request.nextUrl.pathname.startsWith("/registro");
 
-  // Not logged in and not on auth page → redirect to login
-  if (!user && !isAuthRoute) {
+  const isOnboarding = request.nextUrl.pathname.startsWith("/onboarding");
+
+  // Not logged in and not in public route → login
+  if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  // Logged in on auth page (login/registro) → redirect to hoy
-  if (user && (request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/registro")) {
+  // Logged in on login/registro → hoy
+  if (user && isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/hoy";
     return NextResponse.redirect(url);
   }
+
+  // Logged in can access onboarding; page itself will redirect to /hoy if already has household
 
   return supabaseResponse;
 }
