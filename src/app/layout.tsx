@@ -23,8 +23,9 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "Hogar",
+    startupImage: "/icons/icon-512.png",
   },
 };
 
@@ -41,7 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es" className={`${sans.variable} ${display.variable}`}>
       <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-icon.png" />
       </head>
       <body className="min-h-dvh overscroll-none">
         <QueryProvider>
