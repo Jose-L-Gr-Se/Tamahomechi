@@ -153,7 +153,7 @@ export default function TareasPage() {
             title="Sin semana generada"
             description="Genera la semana para repartir las tareas del hogar"
             action={
-              <Button onClick={() => generateWeek.mutate()} disabled={generateWeek.isPending}>
+              <Button onClick={() => generateWeek.mutate(undefined)} disabled={generateWeek.isPending}>
                 {generateWeek.isPending ? "Generando..." : "Generar semana"}
               </Button>
             }
