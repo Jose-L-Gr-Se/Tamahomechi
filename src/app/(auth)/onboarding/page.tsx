@@ -25,8 +25,8 @@ function OnboardingContent() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const displayName = params.get("name") || "Usuario";
-  const avatarEmoji = params.get("emoji") || "🙂";
+  const displayName = params.get("name") || user?.user_metadata?.display_name || "Usuario";
+  const avatarEmoji = params.get("emoji") || user?.user_metadata?.avatar_emoji || "🙂";
 
   // Ensure profile exists
   useEffect(() => {
