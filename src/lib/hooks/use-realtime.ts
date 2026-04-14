@@ -1,22 +1,23 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 
-/**
- * Subscribes to Supabase realtime changes on a table, filtered by household_id.
- * On any change, invalidates the corresponding TanStack Query cache.
- */
+const supabase = createClient(); // fuera del hook, instancia única
+
 export function useRealtimeInvalidation(table: string, householdId: string | null) {
   const queryClient = useQueryClient();
-  const supabase = createClient();
+  const subscribedRef = useRef(false);
 
   useEffect(() => {
-    if (!householdId) return;
+    if (!householdId || subscribedRef.current) return;
+
+    subscribedRef.current = true;
+    const channelName = `${table}-${householdId}`;
 
     const channel = supabase
-      .channel(`${table}-${householdId}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
         {
@@ -32,7 +33,8 @@ export function useRealtimeInvalidation(table: string, householdId: string | nul
       .subscribe();
 
     return () => {
+      subscribedRef.current = false;
       supabase.removeChannel(channel);
     };
-  }, [table, householdId, queryClient, supabase]);
+  }, [table, householdId, queryClient]);
 }
