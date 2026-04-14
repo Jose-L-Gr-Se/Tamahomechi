@@ -258,6 +258,9 @@ ALTER TABLE maintenance_contacts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "household_select" ON households FOR SELECT
   USING (id = get_user_household_id());
 
+CREATE POLICY "households_insert" ON households FOR INSERT
+  WITH CHECK (auth.role() = 'authenticated');
+
 -- User profiles: view household members, update own profile
 CREATE POLICY "profiles_select" ON user_profiles FOR SELECT
   USING (household_id = get_user_household_id() OR id = auth.uid());
