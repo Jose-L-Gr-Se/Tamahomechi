@@ -6,7 +6,6 @@ import { PageShell } from "@/components/layout/page-shell";
 import { ChoreCard } from "@/components/tasks/chore-card";
 import { EmptyState } from "@/components/shared";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   useCurrentChoreWeek,
   useChoreAssignments,
@@ -106,12 +105,12 @@ export default function HoyPage() {
               <div className="space-y-2">
                 {upcomingEvents.slice(0, 3).map((event) => (
                   <Link key={event.id} href={`/agenda/${event.id}`}>
-                    <Card className="p-3 hover:bg-accent transition-colors active:bg-accent/50">
+                    <div className="p-3 rounded-lg border bg-card hover:bg-accent transition-colors active:bg-accent/50">
                       <p className="text-sm font-medium">{event.title}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {format(new Date(event.starts_at), "d MMM, HH:mm", { locale: es })}
                       </p>
-                    </Card>
+                    </div>
                   </Link>
                 ))}
               </div>
@@ -132,7 +131,7 @@ export default function HoyPage() {
           {/* 5. Balance summary */}
           {balance.length > 0 && (
             <Link href="/mas/gastos" className="block">
-              <Card className="p-4">
+              <div className="p-4 rounded-lg border bg-card">
                 <h4 className="text-sm font-semibold mb-2">Balance</h4>
                 {balance.map((b) => (
                   <div key={b.user_id} className="flex items-center justify-between text-sm">
@@ -142,7 +141,7 @@ export default function HoyPage() {
                     </span>
                   </div>
                 ))}
-              </Card>
+              </div>
             </Link>
           )}
 
