@@ -32,8 +32,6 @@ export async function updateSession(request: NextRequest) {
   const isPublicRoute = request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/registro");
 
-  const isOnboarding = request.nextUrl.pathname.startsWith("/onboarding");
-
   // Not logged in and not in public route → login
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
