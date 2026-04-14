@@ -40,6 +40,21 @@ export default function LoginPage() {
     }
   };
 
+  const signInWithGoogle = async () => {
+    setError(null);
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== "undefined" ? window.location.origin : "");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${appUrl}/onboarding`,
+      },
+    });
+
+    if (error) {
+      setError(error.message);
+    }
+  };
+
   if (sent) {
     return (
       <div className="text-center space-y-3 py-8">
@@ -77,6 +92,10 @@ export default function LoginPage() {
 
       <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
         {form.formState.isSubmitting ? "Enviando..." : "Enviar enlace mágico"}
+      </Button>
+
+      <Button type="button" variant="secondary" className="w-full" onClick={signInWithGoogle}>
+        Iniciar con Google
       </Button>
 
       <p className="text-center text-sm text-muted-foreground">
