@@ -63,7 +63,7 @@ export default function TareasPage() {
             <Button
               size="icon"
               variant="ghost"
-              onClick={() => generateWeek.mutate()}
+              onClick={() => generateWeek.mutate(undefined)}
               disabled={generateWeek.isPending}
               title="Generar nueva semana"
             >
