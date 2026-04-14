@@ -66,6 +66,7 @@
   body {
     @apply bg-background text-foreground font-sans;
     font-feature-settings: "ss01", "ss02";
+    overscroll-behavior: none;
   }
 
   /* PWA standalone: adjust for notch / gesture bar */

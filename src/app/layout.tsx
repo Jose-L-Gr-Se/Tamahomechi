@@ -43,7 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
-      <body className="min-h-dvh">
+      <body className="min-h-dvh overscroll-none">
         <QueryProvider>
           <AuthProvider>
             <HouseholdProvider>
