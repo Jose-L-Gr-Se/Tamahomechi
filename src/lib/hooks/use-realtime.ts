@@ -1,23 +1,25 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 
-const supabase = createClient(); // fuera del hook, instancia única
+const supabase = createClient();
+const activeChannels = new Map<string, ReturnType<typeof supabase.channel>>();
 
 export function useRealtimeInvalidation(table: string, householdId: string | null) {
   const queryClient = useQueryClient();
-  const subscribedRef = useRef(false);
 
   useEffect(() => {
-    if (!householdId || subscribedRef.current) return;
+    if (!householdId) return;
 
-    subscribedRef.current = true;
-    const channelName = `${table}-${householdId}`;
+    const key = `${table}-${householdId}`;
+
+    // Si ya existe un canal activo para esta combinación, no crear otro
+    if (activeChannels.has(key)) return;
 
     const channel = supabase
-      .channel(channelName)
+      .channel(key)
       .on(
         "postgres_changes",
         {
@@ -32,8 +34,10 @@ export function useRealtimeInvalidation(table: string, householdId: string | nul
       )
       .subscribe();
 
+    activeChannels.set(key, channel);
+
     return () => {
-      subscribedRef.current = false;
+      activeChannels.delete(key);
       supabase.removeChannel(channel);
     };
   }, [table, householdId, queryClient]);
