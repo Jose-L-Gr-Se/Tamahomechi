@@ -12,11 +12,16 @@ import {
   useUpdateZone,
   useAddChoreDefinition,
   useDeleteChoreDefinition,
+  useGenerateChoreWeek,
 } from "@/lib/hooks/use-chores";
 import { useHousehold } from "@/providers/household-provider";
+import { createClient } from "@/lib/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils/cn";
-import { ChevronDown, ChevronUp, Plus, Trash2, ArrowLeft } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, Trash2, ArrowLeft, RefreshCw, AlertTriangle } from "lucide-react";
 import type { ChoreZone } from "@/lib/hooks/use-chores";
+
+const supabase = createClient();
 
 function ZoneRow({ zone }: { zone: ChoreZone }) {
   const [expanded, setExpanded] = useState(false);
@@ -40,13 +45,13 @@ function ZoneRow({ zone }: { zone: ChoreZone }) {
       "rounded-2xl border overflow-hidden transition-all",
       !zone.is_active && "opacity-50"
     )}>
-      {/* Header */}
       <div className="flex items-center gap-3 p-4">
         <span className="text-2xl">{zone.emoji}</span>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold">{zone.name}</p>
           <p className="text-xs text-muted-foreground">
             {zone.is_active ? "Activa" : "Inactiva"}
+            {zone.is_fixed && " · Fija siempre"}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -71,11 +76,9 @@ function ZoneRow({ zone }: { zone: ChoreZone }) {
         </div>
       </div>
 
-      {/* Expanded: tareas de la zona */}
       {expanded && (
         <div className="border-t bg-muted/30 p-4 space-y-3">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tareas</p>
-
           {definitions.map((def) => (
             <div key={def.id} className="flex items-center gap-2">
               <span className="text-xs flex-1 text-foreground">{def.title}</span>
@@ -87,8 +90,6 @@ function ZoneRow({ zone }: { zone: ChoreZone }) {
               </button>
             </div>
           ))}
-
-          {/* Add task */}
           <div className="flex gap-2 pt-1">
             <Input
               value={newTask}
@@ -115,7 +116,54 @@ function ZoneRow({ zone }: { zone: ChoreZone }) {
 
 export default function ZonasPage() {
   const router = useRouter();
+  const { householdId } = useHousehold();
   const { data: zones = [], isLoading } = useChoreZones();
+  const generateWeek = useGenerateChoreWeek();
+  const queryClient = useQueryClient();
+  const [regenerating, setRegenerating] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const handleRegenerateWeek = async () => {
+    if (!householdId) return;
+    setRegenerating(true);
+    try {
+      // 1. Borrar semana actual y sus asignaciones (cascade)
+      const { data: currentWeek } = await supabase
+        .from("chore_weeks")
+        .select("id")
+        .eq("household_id", householdId)
+        .order("week_start", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (currentWeek) {
+        await supabase
+          .from("chore_assignments")
+          .delete()
+          .eq("week_id", currentWeek.id);
+
+        await supabase
+          .from("chore_weeks")
+          .delete()
+          .eq("id", currentWeek.id);
+      }
+
+      // 2. Generar nueva semana
+      await generateWeek.mutateAsync(undefined);
+
+      // 3. Invalidar queries
+      queryClient.invalidateQueries({ queryKey: ["chore_week_current", householdId] });
+      queryClient.invalidateQueries({ queryKey: ["chore_assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["chore_assignments_mine"] });
+
+      setShowConfirm(false);
+      router.push("/tareas");
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setRegenerating(false);
+    }
+  };
 
   return (
     <>
@@ -129,24 +177,72 @@ export default function ZonasPage() {
         </button>
 
         <p className="text-sm text-muted-foreground mb-4">
-          Activa o desactiva estancias y gestiona sus tareas. Las estancias inactivas no se incluyen en la distribución semanal.
+          Activa o desactiva estancias y gestiona sus tareas. Las marcadas como "Fija" aparecen todas las semanas.
         </p>
 
+        {/* Zonas */}
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => <div key={i} className="h-16 bg-muted rounded-2xl animate-pulse" />)}
           </div>
-        ) : zones.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            No hay estancias configuradas. Contacta con soporte.
-          </p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 mb-8">
             {zones.map((zone) => (
               <ZoneRow key={zone.id} zone={zone} />
             ))}
           </div>
         )}
+
+        {/* Sección regenerar semana */}
+        <div className="border-t pt-6 mt-2">
+          <h3 className="text-sm font-semibold mb-1">Semana actual</h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            Borra la semana actual y genera una nueva distribución. Útil si cambiásteis de miembros o queréis rehacer el reparto.
+          </p>
+
+          {!showConfirm ? (
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => setShowConfirm(true)}
+            >
+              <RefreshCw className="h-4 w-4" />
+              Regenerar semana
+            </Button>
+          ) : (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                <p className="text-sm text-destructive">
+                  Esto borrará todas las asignaciones de la semana actual, incluidas las ya completadas. No se puede deshacer.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowConfirm(false)}
+                  disabled={regenerating}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1 gap-2"
+                  onClick={handleRegenerateWeek}
+                  disabled={regenerating}
+                >
+                  {regenerating ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  {regenerating ? "Regenerando..." : "Confirmar"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </PageShell>
     </>
   );
