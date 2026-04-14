@@ -33,7 +33,7 @@ export default function RegistroPage() {
     const { error: authError } = await supabase.auth.signInWithOtp({
       email: values.email,
       options: {
-        emailRedirectTo: `${appUrl}/onboarding?name=${encodeURIComponent(values.display_name)}&emoji=${encodeURIComponent(values.avatar_emoji)}`,
+        emailRedirectTo: `${appUrl}/auth/callback`,
         data: {
           display_name: values.display_name,
           avatar_emoji: values.avatar_emoji,
