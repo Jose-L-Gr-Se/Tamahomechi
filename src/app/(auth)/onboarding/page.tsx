@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,7 +15,7 @@ import { z } from "zod";
 type CreateValues = z.infer<typeof createHouseholdSchema>;
 type JoinValues = z.infer<typeof joinHouseholdSchema>;
 
-export default function OnboardingPage() {
+function OnboardingContent() {
   const router = useRouter();
   const params = useSearchParams();
   const { user } = useAuth();
@@ -209,5 +209,13 @@ export default function OnboardingPage() {
         {loading ? "Uniéndome..." : "Unirme al hogar"}
       </Button>
     </form>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={<div>Cargando...</div>}>
+      <OnboardingContent />
+    </Suspense>
   );
 }
