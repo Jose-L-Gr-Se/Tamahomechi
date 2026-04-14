@@ -21,32 +21,29 @@ function OnboardingContent() {
   const { user } = useAuth();
   const supabase = createClient();
 
+  const [profile, setProfile] = useState<{ display_name?: string; avatar_emoji?: string; household_id?: string } | null>(null);
   const [mode, setMode] = useState<"choose" | "create" | "join">("choose");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const displayName = params.get("name") || user?.user_metadata?.display_name || "Usuario";
-  const avatarEmoji = params.get("emoji") || user?.user_metadata?.avatar_emoji || "🙂";
+  const displayName = params.get("name") || profile?.display_name || user?.user_metadata?.display_name || "Usuario";
+  const avatarEmoji = params.get("emoji") || profile?.avatar_emoji || user?.user_metadata?.avatar_emoji || "🙂";
 
-  // Ensure profile exists
+  // Ensure profile exists and redirect if user already has household
   useEffect(() => {
     if (!user) return;
     const ensureProfile = async () => {
       const { data: existing } = await supabase
         .from("user_profiles")
-        .select("id")
+        .select("id, household_id, display_name, avatar_emoji")
         .eq("id", user.id)
         .single();
 
       if (existing) {
-        // Profile exists, check if already has household
-        const { data: profile } = await supabase
-          .from("user_profiles")
-          .select("household_id")
-          .eq("id", user.id)
-          .single();
-        if (profile?.household_id) {
+        setProfile(existing);
+        if (existing.household_id) {
           router.replace("/hoy");
+          return;
         }
         return;
       }
