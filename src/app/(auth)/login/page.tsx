@@ -25,10 +25,11 @@ export default function LoginPage() {
 
   const onSubmit = async (values: LoginValues) => {
     setError(null);
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== "undefined" ? window.location.origin : "");
     const { error } = await supabase.auth.signInWithOtp({
       email: values.email,
       options: {
-        emailRedirectTo: `${window.location.origin}/hoy`,
+        emailRedirectTo: `${appUrl}/hoy`,
       },
     });
 

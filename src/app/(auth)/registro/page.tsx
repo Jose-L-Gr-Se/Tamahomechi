@@ -27,12 +27,13 @@ export default function RegistroPage() {
 
   const onSubmit = async (values: RegisterValues) => {
     setError(null);
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== "undefined" ? window.location.origin : "");
 
     // Sign up with OTP — profile will be created on onboarding
     const { error: authError } = await supabase.auth.signInWithOtp({
       email: values.email,
       options: {
-        emailRedirectTo: `${window.location.origin}/onboarding?name=${encodeURIComponent(values.display_name)}&emoji=${encodeURIComponent(values.avatar_emoji)}`,
+        emailRedirectTo: `${appUrl}/onboarding?name=${encodeURIComponent(values.display_name)}&emoji=${encodeURIComponent(values.avatar_emoji)}`,
         data: {
           display_name: values.display_name,
           avatar_emoji: values.avatar_emoji,
