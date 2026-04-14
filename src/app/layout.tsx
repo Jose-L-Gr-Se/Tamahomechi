@@ -18,13 +18,13 @@ const display = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Hogar",
-  description: "Hub doméstico compartido para tu hogar",
+  title: "Tamahomechi",
+  description: "El Tamagotchi de tu hogar",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Hogar",
+    title: "Tamahomechi",
     startupImage: "/icons/icon-512.png",
   },
 };

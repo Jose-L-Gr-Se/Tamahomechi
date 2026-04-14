@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Hogar",
-    short_name: "Hogar",
-    description: "Hub doméstico compartido para tu hogar",
+    name: "Tamahomechi",
+    short_name: "Tamahomechi",
+    description: "El Tamagotchi de tu hogar",
     start_url: "/hoy",
     display: "standalone",
     background_color: "#f7f3ef",
