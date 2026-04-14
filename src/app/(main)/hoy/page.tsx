@@ -68,7 +68,7 @@ export default function HoyPage() {
                 title="Sin semana generada"
                 description="Genera la semana para ver tus tareas"
                 action={
-                  <Button size="sm" onClick={() => generateWeek.mutate()} disabled={generateWeek.isPending}>
+                  <Button size="sm" onClick={() => generateWeek.mutate(undefined)} disabled={generateWeek.isPending}>
                     {generateWeek.isPending ? "Generando..." : "Generar semana"}
                   </Button>
                 }
