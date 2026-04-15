@@ -2,7 +2,7 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createEventSchema } from "@/lib/schemas";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,12 +10,48 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useHousehold } from "@/providers/household-provider";
 import { useCreateEvent, useUpdateEvent } from "@/lib/hooks/use-events";
 import { EVENT_TYPES, REMINDER_OPTIONS } from "@/lib/constants";
-import type { Event, CreateEventInput } from "@/lib/types";
+import type { Event } from "@/lib/types";
 import { useRouter } from "next/navigation";
+import { format, parseISO } from "date-fns";
+import { cn } from "@/lib/utils/cn";
+
+// Schema con fecha y hora separadas para compatibilidad iOS
+const eventSchema = z.object({
+  title: z.string().min(1, "Título obligatorio").max(200),
+  description: z.string().max(1000).optional(),
+  event_type: z.enum(["cita_medica", "veterinario", "hogar", "personal", "otro"]).default("otro"),
+  date: z.string().min(1, "Fecha obligatoria"),
+  time: z.string().optional(),
+  all_day: z.boolean().default(false),
+  assigned_to: z.string().nullable().default(null),
+  reminder_minutes_before: z.union([z.literal(60), z.literal(1440), z.literal(4320), z.null()]).default(null),
+});
+
+type EventFormValues = z.infer<typeof eventSchema>;
 
 interface EventFormProps {
   event?: Event;
   onSuccess?: () => void;
+}
+
+// Helper: extraer fecha y hora de un ISO string
+function splitDateTime(isoString: string) {
+  try {
+    const d = parseISO(isoString);
+    return {
+      date: format(d, "yyyy-MM-dd"),
+      time: format(d, "HH:mm"),
+    };
+  } catch {
+    return { date: "", time: "12:00" };
+  }
+}
+
+// Helper: combinar fecha + hora en ISO
+function combineDateTime(date: string, time: string, allDay: boolean): string {
+  if (!date) return new Date().toISOString();
+  if (allDay) return new Date(date + "T00:00:00").toISOString();
+  return new Date(`${date}T${time || "12:00"}:00`).toISOString();
 }
 
 export function EventForm({ event, onSuccess }: EventFormProps) {
@@ -25,34 +61,45 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
   const updateEvent = useUpdateEvent();
   const isEditing = !!event;
 
-  const form = useForm<CreateEventInput>({
-    resolver: zodResolver(createEventSchema),
+  const defaultDate = event?.starts_at ? splitDateTime(event.starts_at) : { date: "", time: "12:00" };
+
+  const form = useForm<EventFormValues>({
+    resolver: zodResolver(eventSchema),
     defaultValues: {
       title: event?.title ?? "",
       description: event?.description ?? "",
-      event_type: event?.event_type ?? "otro",
-      starts_at: event?.starts_at ? event.starts_at.slice(0, 16) : "",
+      event_type: (event?.event_type as EventFormValues["event_type"]) ?? "otro",
+      date: defaultDate.date,
+      time: defaultDate.time,
       all_day: event?.all_day ?? false,
       assigned_to: event?.assigned_to ?? null,
-      reminder_minutes_before: event?.reminder_minutes_before ?? null,
+      reminder_minutes_before: (event?.reminder_minutes_before as EventFormValues["reminder_minutes_before"]) ?? null,
     },
   });
 
-  const onSubmit = (values: CreateEventInput) => {
-    // Ensure proper ISO format
-    const startsAt = values.all_day
-      ? new Date(values.starts_at + "T00:00:00").toISOString()
-      : new Date(values.starts_at).toISOString();
+  const allDay = form.watch("all_day");
 
-    const payload = { ...values, starts_at: startsAt };
+  const onSubmit = (values: EventFormValues) => {
+    const starts_at = combineDateTime(values.date, values.time ?? "12:00", values.all_day);
+
+    const payload = {
+      title: values.title,
+      description: values.description || undefined,
+      event_type: values.event_type,
+      starts_at,
+      all_day: values.all_day,
+      assigned_to: values.assigned_to,
+      reminder_minutes_before: values.reminder_minutes_before,
+    };
 
     if (isEditing) {
-      updateEvent.mutate({ id: event.id, ...payload }, {
-        onSuccess: () => { onSuccess?.(); router.back(); },
-      });
+      updateEvent.mutate(
+        { id: event.id, ...payload },
+        { onSuccess: () => { onSuccess?.(); router.back(); } }
+      );
     } else {
       createEvent.mutate(payload, {
-        onSuccess: () => { onSuccess?.(); router.back(); },
+        onSuccess: () => { onSuccess?.(); },
       });
     }
   };
@@ -60,20 +107,27 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
   const isPending = createEvent.isPending || updateEvent.isPending;
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pb-4">
+
+      {/* Título */}
       <div className="space-y-1.5">
         <Label>Título</Label>
-        <Input placeholder="Cita, reunión, recordatorio..." autoFocus {...form.register("title")} />
+        <Input
+          placeholder="Cita, reunión, recordatorio..."
+          autoFocus
+          {...form.register("title")}
+        />
         {form.formState.errors.title && (
           <p className="text-xs text-destructive">{form.formState.errors.title.message}</p>
         )}
       </div>
 
+      {/* Tipo */}
       <div className="space-y-1.5">
         <Label>Tipo</Label>
         <Select
           value={form.watch("event_type")}
-          onValueChange={(v) => form.setValue("event_type", v as CreateEventInput["event_type"])}
+          onValueChange={(v) => form.setValue("event_type", v as EventFormValues["event_type"])}
         >
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -84,35 +138,53 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
         </Select>
       </div>
 
-      <div className="flex items-center gap-3">
+      {/* Todo el día toggle */}
+      <div className="flex items-center justify-between">
+        <Label>Todo el día</Label>
         <button
           type="button"
-          onClick={() => form.setValue("all_day", !form.watch("all_day"))}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            form.watch("all_day") ? "bg-primary" : "bg-muted"
-          }`}
+          onClick={() => form.setValue("all_day", !allDay)}
+          className={cn(
+            "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+            allDay ? "bg-primary" : "bg-muted"
+          )}
         >
-          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-            form.watch("all_day") ? "translate-x-6" : "translate-x-1"
-          }`} />
+          <span className={cn(
+            "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+            allDay ? "translate-x-6" : "translate-x-1"
+          )} />
         </button>
-        <Label>Todo el día</Label>
       </div>
 
+      {/* Fecha — input nativo separado para iOS */}
       <div className="space-y-1.5">
-        <Label>Fecha{!form.watch("all_day") && " y hora"}</Label>
+        <Label>Fecha</Label>
         <Input
-          type={form.watch("all_day") ? "date" : "datetime-local"}
-          {...form.register("starts_at")}
+          type="date"
+          {...form.register("date")}
+          style={{ WebkitAppearance: "none" }}
         />
-        {form.formState.errors.starts_at && (
-          <p className="text-xs text-destructive">{form.formState.errors.starts_at.message}</p>
+        {form.formState.errors.date && (
+          <p className="text-xs text-destructive">{form.formState.errors.date.message}</p>
         )}
       </div>
 
+      {/* Hora — solo si no es todo el día */}
+      {!allDay && (
+        <div className="space-y-1.5">
+          <Label>Hora</Label>
+          <Input
+            type="time"
+            {...form.register("time")}
+            style={{ WebkitAppearance: "none" }}
+          />
+        </div>
+      )}
+
+      {/* Para quién */}
       <div className="space-y-1.5">
         <Label>Para quién</Label>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {[
             { id: null, label: "Ambos", emoji: "👥" },
             ...(currentMember ? [{ id: currentMember.id, label: "Yo", emoji: currentMember.avatar_emoji }] : []),
@@ -122,11 +194,12 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
               key={opt.id ?? "both"}
               type="button"
               onClick={() => form.setValue("assigned_to", opt.id)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border transition-colors ${
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border transition-colors",
                 form.watch("assigned_to") === opt.id
                   ? "border-primary bg-primary/5 text-primary font-medium"
                   : "border-input text-muted-foreground"
-              }`}
+              )}
             >
               <span>{opt.emoji}</span>
               <span>{opt.label}</span>
@@ -135,21 +208,28 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
         </div>
       </div>
 
+      {/* Recordatorio */}
       <div className="space-y-1.5">
         <Label>Recordatorio</Label>
         <Select
           value={String(form.watch("reminder_minutes_before") ?? "null")}
-          onValueChange={(v) => form.setValue("reminder_minutes_before", v === "null" ? null : parseInt(v) as 60 | 1440 | 4320)}
+          onValueChange={(v) => form.setValue(
+            "reminder_minutes_before",
+            v === "null" ? null : parseInt(v) as 60 | 1440 | 4320
+          )}
         >
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
             {REMINDER_OPTIONS.map((r) => (
-              <SelectItem key={String(r.value)} value={String(r.value ?? "null")}>{r.label}</SelectItem>
+              <SelectItem key={String(r.value)} value={String(r.value ?? "null")}>
+                {r.label}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
+      {/* Notas */}
       <div className="space-y-1.5">
         <Label>Notas <span className="text-muted-foreground font-normal">(opcional)</span></Label>
         <textarea

@@ -12,7 +12,7 @@ import { ArrowLeft, Trash2 } from "lucide-react";
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { data: event, isLoading } = useEvent(id);
+  const { data: event, isLoading, error } = useEvent(id);
   const deleteEvent = useDeleteEvent();
 
   const handleDelete = () => {
@@ -20,29 +20,65 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     deleteEvent.mutate(id, { onSuccess: () => router.back() });
   };
 
+  if (isLoading) {
+    return (
+      <>
+        <TopBar title="Evento" showAvatar={false} />
+        <PageShell>
+          <div className="space-y-4 pt-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-12 bg-muted rounded-xl animate-pulse" />
+            ))}
+          </div>
+        </PageShell>
+      </>
+    );
+  }
+
+  if (error || !event) {
+    return (
+      <>
+        <TopBar title="Evento" showAvatar={false} />
+        <PageShell>
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-1 text-sm text-muted-foreground mb-4 hover:underline"
+          >
+            <ArrowLeft className="h-4 w-4" /> Volver
+          </button>
+          <p className="text-sm text-muted-foreground text-center py-12">
+            Evento no encontrado
+          </p>
+        </PageShell>
+      </>
+    );
+  }
+
   return (
     <>
       <TopBar
         title="Editar evento"
         showAvatar={false}
         rightAction={
-          <Button size="icon" variant="ghost" onClick={handleDelete} disabled={deleteEvent.isPending}>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={handleDelete}
+            disabled={deleteEvent.isPending}
+          >
             <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
         }
       />
       <PageShell>
-        <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-muted-foreground mb-4 hover:underline">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-1 text-sm text-muted-foreground mb-4 hover:underline"
+        >
           <ArrowLeft className="h-4 w-4" /> Volver
         </button>
 
-        {isLoading ? (
-          <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-12 bg-muted rounded-xl animate-pulse" />)}</div>
-        ) : event ? (
-          <EventForm event={event} />
-        ) : (
-          <p className="text-sm text-muted-foreground text-center py-12">Evento no encontrado</p>
-        )}
+        <EventForm event={event} onSuccess={() => router.back()} />
       </PageShell>
     </>
   );
