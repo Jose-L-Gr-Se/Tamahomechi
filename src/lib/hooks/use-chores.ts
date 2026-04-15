@@ -254,7 +254,7 @@ export function useRegenerateChoreWeek() {
       // Remove the current generated week and assignments before generating again.
       const { data: currentWeek, error: currentWeekError } = await supabase
         .from("chore_weeks")
-        .select("id")
+        .select("id, week_start")
         .eq("household_id", householdId!)
         .order("week_start", { ascending: false })
         .limit(1)
@@ -263,6 +263,8 @@ export function useRegenerateChoreWeek() {
       if (currentWeekError && currentWeekError.code !== "PGRST116") {
         throw currentWeekError;
       }
+
+      const weekStartToUse = currentWeek?.week_start ?? weekStart ?? null;
 
       if (currentWeek) {
         const { error: deleteAssignmentsError } = await supabase
@@ -280,7 +282,7 @@ export function useRegenerateChoreWeek() {
 
       const { data, error } = await supabase.rpc("generate_chore_week", {
         p_household_id: householdId!,
-        p_week_start: weekStart ?? null,
+        p_week_start: weekStartToUse,
         p_generated_by: user!.id,
       });
       if (error) throw error;
