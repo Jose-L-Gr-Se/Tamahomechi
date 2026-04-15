@@ -2,8 +2,13 @@
 -- Chore Management Functions
 -- =============================================
 
+-- Drop existing functions to recreate them
+DROP FUNCTION IF EXISTS generate_chore_week(UUID, DATE, UUID) CASCADE;
+DROP FUNCTION IF EXISTS complete_chore(UUID, UUID) CASCADE;
+DROP FUNCTION IF EXISTS apply_chore_penalties(UUID) CASCADE;
+
 -- Generate a chore week with proper member distribution
-CREATE OR REPLACE FUNCTION generate_chore_week(
+CREATE FUNCTION generate_chore_week(
   p_household_id UUID,
   p_week_start DATE DEFAULT NULL,
   p_generated_by UUID DEFAULT NULL
@@ -124,7 +129,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Complete a chore assignment
-CREATE OR REPLACE FUNCTION complete_chore(
+CREATE FUNCTION complete_chore(
   p_assignment_id UUID,
   p_completed_by UUID
 )
@@ -145,7 +150,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Apply penalties for incomplete chores
-CREATE OR REPLACE FUNCTION apply_chore_penalties(
+CREATE FUNCTION apply_chore_penalties(
   p_household_id UUID
 )
 RETURNS INT AS $$
