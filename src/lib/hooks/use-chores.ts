@@ -251,47 +251,71 @@ export function useRegenerateChoreWeek() {
 
   return useMutation({
     mutationFn: async (weekStart?: string) => {
+      if (!householdId || !user) {
+        throw new Error("Household or user not found");
+      }
+
       // Remove the current generated week and assignments before generating again.
       const { data: currentWeek, error: currentWeekError } = await supabase
         .from("chore_weeks")
         .select("id, week_start")
-        .eq("household_id", householdId!)
+        .eq("household_id", householdId)
         .order("week_start", { ascending: false })
         .limit(1)
         .single();
 
       if (currentWeekError && currentWeekError.code !== "PGRST116") {
+        console.error("Error fetching current week:", currentWeekError);
         throw currentWeekError;
       }
 
       const weekStartToUse = currentWeek?.week_start ?? weekStart ?? null;
 
+      // Delete old assignments and week
       if (currentWeek) {
         const { error: deleteAssignmentsError } = await supabase
           .from("chore_assignments")
           .delete()
           .eq("week_id", currentWeek.id);
-        if (deleteAssignmentsError) throw deleteAssignmentsError;
+        if (deleteAssignmentsError) {
+          console.error("Error deleting assignments:", deleteAssignmentsError);
+          throw deleteAssignmentsError;
+        }
 
         const { error: deleteWeekError } = await supabase
           .from("chore_weeks")
           .delete()
           .eq("id", currentWeek.id);
-        if (deleteWeekError) throw deleteWeekError;
+        if (deleteWeekError) {
+          console.error("Error deleting week:", deleteWeekError);
+          throw deleteWeekError;
+        }
       }
 
+      // Call RPC to generate new week
       const { data, error } = await supabase.rpc("generate_chore_week", {
-        p_household_id: householdId!,
+        p_household_id: householdId,
         p_week_start: weekStartToUse,
-        p_generated_by: user!.id,
+        p_generated_by: user.id,
       });
-      if (error) throw error;
+      
+      if (error) {
+        console.error("Error generating chore week:", error);
+        throw error;
+      }
+      
+      console.log("New chore week generated:", data);
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["chore_week_current", householdId] });
+      // Invalidate all related queries
+      queryClient.invalidateQueries({ queryKey: ["chore_week_current"] });
       queryClient.invalidateQueries({ queryKey: ["chore_assignments"] });
       queryClient.invalidateQueries({ queryKey: ["chore_assignments_mine"] });
+      queryClient.invalidateQueries({ queryKey: ["chore_zones"] });
+    },
+    onError: (error) => {
+      console.error("Chore regeneration failed:", error);
     },
   });
 }
