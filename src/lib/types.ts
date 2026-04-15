@@ -20,6 +20,7 @@ export interface Household {
   name: string;
   invite_code: string;
   created_at: string;
+  chore_rotating_per_member?: number;
 }
 
 export interface UserProfile {

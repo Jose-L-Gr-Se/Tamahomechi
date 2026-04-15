@@ -271,8 +271,22 @@ export function useRegenerateChoreWeek() {
 
       const weekStartToUse = currentWeek?.week_start ?? weekStart ?? null;
 
-      // Delete old assignments and week
+      // Capture old assignments so the RPC can avoid reproducing them.
+      let excludeAssignments: Record<string, string> | null = null;
+
       if (currentWeek) {
+        const { data: oldAssignments } = await supabase
+          .from("chore_assignments")
+          .select("zone_id, assigned_to")
+          .eq("week_id", currentWeek.id);
+
+        if (oldAssignments && oldAssignments.length > 0) {
+          excludeAssignments = {};
+          for (const a of oldAssignments) {
+            excludeAssignments[a.zone_id] = a.assigned_to;
+          }
+        }
+
         const { error: deleteAssignmentsError } = await supabase
           .from("chore_assignments")
           .delete()
@@ -297,6 +311,7 @@ export function useRegenerateChoreWeek() {
         p_household_id: householdId,
         p_week_start: weekStartToUse,
         p_generated_by: user.id,
+        p_exclude_assignments: excludeAssignments,
       });
       
       if (error) {
@@ -336,6 +351,25 @@ export function useApplyPenalties() {
       queryClient.invalidateQueries({ queryKey: ["chore_assignments"] });
       queryClient.invalidateQueries({ queryKey: ["balance", householdId] });
       queryClient.invalidateQueries({ queryKey: ["expenses", householdId] });
+    },
+  });
+}
+
+export function useUpdateChoreConfig() {
+  const queryClient = useQueryClient();
+  const { householdId } = useHousehold();
+
+  return useMutation({
+    mutationFn: async ({ rotatingPerMember }: { rotatingPerMember: number }) => {
+      if (!householdId) throw new Error("Household not found");
+      const { error } = await supabase
+        .from("households")
+        .update({ chore_rotating_per_member: rotatingPerMember })
+        .eq("id", householdId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["household", householdId] });
     },
   });
 }

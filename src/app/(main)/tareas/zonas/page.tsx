@@ -13,6 +13,7 @@ import {
   useAddChoreDefinition,
   useDeleteChoreDefinition,
   useRegenerateChoreWeek,
+  useUpdateChoreConfig,
 } from "@/lib/hooks/use-chores";
 import { useHousehold } from "@/providers/household-provider";
 import { createClient } from "@/lib/supabase/client";
@@ -116,11 +117,13 @@ function ZoneRow({ zone }: { zone: ChoreZone }) {
 
 export default function ZonasPage() {
   const router = useRouter();
-  const { householdId } = useHousehold();
+  const { householdId, household } = useHousehold();
   const { data: zones = [], isLoading } = useChoreZones();
   const regenerateWeek = useRegenerateChoreWeek();
+  const updateConfig = useUpdateChoreConfig();
   const [regenerating, setRegenerating] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const rotatingPerMember = household?.chore_rotating_per_member ?? 2;
 
   const handleRegenerateWeek = async () => {
     if (!householdId) return;
@@ -167,6 +170,38 @@ export default function ZonasPage() {
             ))}
           </div>
         )}
+
+        {/* Sección configuración */}
+        <div className="border-t pt-6 mt-2 mb-6">
+          <h3 className="text-sm font-semibold mb-1">Configuración</h3>
+          <p className="text-xs text-muted-foreground mb-3">
+            Número de estancias rotativas que se asignan a cada persona por semana (además de las fijas).
+          </p>
+          <div className="flex items-center gap-2">
+            <label className="text-sm flex-1">Rotativas por persona</label>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                disabled={rotatingPerMember <= 0 || updateConfig.isPending}
+                onClick={() => updateConfig.mutate({ rotatingPerMember: rotatingPerMember - 1 })}
+              >
+                −
+              </Button>
+              <span className="w-8 text-center text-sm font-medium tabular-nums">{rotatingPerMember}</span>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                disabled={updateConfig.isPending}
+                onClick={() => updateConfig.mutate({ rotatingPerMember: rotatingPerMember + 1 })}
+              >
+                +
+              </Button>
+            </div>
+          </div>
+        </div>
 
         {/* Sección regenerar semana */}
         <div className="border-t pt-6 mt-2">
