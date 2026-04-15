@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useCurrentChoreWeek,
   useChoreAssignments,
-  useGenerateChoreWeek,
+  useRegenerateChoreWeek,
   useApplyPenalties,
 } from "@/lib/hooks/use-chores";
 import { useHousehold } from "@/providers/household-provider";
@@ -30,7 +30,7 @@ export default function TareasPage() {
 
   const { data: currentWeek, isLoading: weekLoading } = useCurrentChoreWeek();
   const { data: assignments = [], isLoading: assignmentsLoading } = useChoreAssignments(currentWeek?.id ?? null);
-  const generateWeek = useGenerateChoreWeek();
+  const regenerateWeek = useRegenerateChoreWeek();
   const applyPenalties = useApplyPenalties();
 
   const myAssignments = assignments.filter((a) => a.assigned_to === user?.id);
@@ -63,11 +63,16 @@ export default function TareasPage() {
             <Button
               size="icon"
               variant="ghost"
-              onClick={() => generateWeek.mutate(undefined)}
-              disabled={generateWeek.isPending}
-              title="Generar nueva semana"
+              onClick={() => {
+                if (currentWeek && !confirm("Se eliminarán las asignaciones actuales y se generará una nueva semana. ¿Continuar?")) {
+                  return;
+                }
+                regenerateWeek.mutate(undefined);
+              }}
+              disabled={regenerateWeek.isPending}
+              title="Regenerar semana"
             >
-              <RefreshCw className={cn("h-4 w-4", generateWeek.isPending && "animate-spin")} />
+              <RefreshCw className={cn("h-4 w-4", regenerateWeek.isPending && "animate-spin")} />
             </Button>
           </div>
         }
@@ -153,8 +158,8 @@ export default function TareasPage() {
             title="Sin semana generada"
             description="Genera la semana para repartir las tareas del hogar"
             action={
-              <Button onClick={() => generateWeek.mutate(undefined)} disabled={generateWeek.isPending}>
-                {generateWeek.isPending ? "Generando..." : "Generar semana"}
+              <Button onClick={() => regenerateWeek.mutate(undefined)} disabled={regenerateWeek.isPending}>
+                {regenerateWeek.isPending ? "Regenerando..." : "Generar semana"}
               </Button>
             }
           />

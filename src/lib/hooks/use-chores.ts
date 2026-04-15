@@ -239,6 +239,57 @@ export function useGenerateChoreWeek() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chore_week_current", householdId] });
       queryClient.invalidateQueries({ queryKey: ["chore_assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["chore_assignments_mine"] });
+    },
+  });
+}
+
+export function useRegenerateChoreWeek() {
+  const queryClient = useQueryClient();
+  const { householdId } = useHousehold();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (weekStart?: string) => {
+      // Remove the current generated week and assignments before generating again.
+      const { data: currentWeek, error: currentWeekError } = await supabase
+        .from("chore_weeks")
+        .select("id")
+        .eq("household_id", householdId!)
+        .order("week_start", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (currentWeekError && currentWeekError.code !== "PGRST116") {
+        throw currentWeekError;
+      }
+
+      if (currentWeek) {
+        const { error: deleteAssignmentsError } = await supabase
+          .from("chore_assignments")
+          .delete()
+          .eq("week_id", currentWeek.id);
+        if (deleteAssignmentsError) throw deleteAssignmentsError;
+
+        const { error: deleteWeekError } = await supabase
+          .from("chore_weeks")
+          .delete()
+          .eq("id", currentWeek.id);
+        if (deleteWeekError) throw deleteWeekError;
+      }
+
+      const { data, error } = await supabase.rpc("generate_chore_week", {
+        p_household_id: householdId!,
+        p_week_start: weekStart ?? null,
+        p_generated_by: user!.id,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chore_week_current", householdId] });
+      queryClient.invalidateQueries({ queryKey: ["chore_assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["chore_assignments_mine"] });
     },
   });
 }

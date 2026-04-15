@@ -12,7 +12,7 @@ import {
   useUpdateZone,
   useAddChoreDefinition,
   useDeleteChoreDefinition,
-  useGenerateChoreWeek,
+  useRegenerateChoreWeek,
 } from "@/lib/hooks/use-chores";
 import { useHousehold } from "@/providers/household-provider";
 import { createClient } from "@/lib/supabase/client";
@@ -118,44 +118,19 @@ export default function ZonasPage() {
   const router = useRouter();
   const { householdId } = useHousehold();
   const { data: zones = [], isLoading } = useChoreZones();
-  const generateWeek = useGenerateChoreWeek();
-  const queryClient = useQueryClient();
+  const regenerateWeek = useRegenerateChoreWeek();
   const [regenerating, setRegenerating] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
   const handleRegenerateWeek = async () => {
     if (!householdId) return;
+    if (!confirm("Se eliminarán las asignaciones actuales y se generará una nueva semana. ¿Continuar?")) {
+      return;
+    }
+
     setRegenerating(true);
     try {
-      // 1. Borrar semana actual y sus asignaciones (cascade)
-      const { data: currentWeek } = await supabase
-        .from("chore_weeks")
-        .select("id")
-        .eq("household_id", householdId)
-        .order("week_start", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (currentWeek) {
-        await supabase
-          .from("chore_assignments")
-          .delete()
-          .eq("week_id", currentWeek.id);
-
-        await supabase
-          .from("chore_weeks")
-          .delete()
-          .eq("id", currentWeek.id);
-      }
-
-      // 2. Generar nueva semana
-      await generateWeek.mutateAsync(undefined);
-
-      // 3. Invalidar queries
-      queryClient.invalidateQueries({ queryKey: ["chore_week_current", householdId] });
-      queryClient.invalidateQueries({ queryKey: ["chore_assignments"] });
-      queryClient.invalidateQueries({ queryKey: ["chore_assignments_mine"] });
-
+      await regenerateWeek.mutateAsync(undefined);
       setShowConfirm(false);
       router.push("/tareas");
     } catch (e) {
