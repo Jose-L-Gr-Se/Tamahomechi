@@ -255,63 +255,26 @@ export function useRegenerateChoreWeek() {
         throw new Error("Household or user not found");
       }
 
-      // Remove the current generated week and assignments before generating again.
-      const { data: currentWeek, error: currentWeekError } = await supabase
+      // Look up the current week_start so the RPC regenerates the same slot.
+      const { data: currentWeek } = await supabase
         .from("chore_weeks")
-        .select("id, week_start")
+        .select("week_start")
         .eq("household_id", householdId)
         .order("week_start", { ascending: false })
         .limit(1)
-        .single();
-
-      if (currentWeekError && currentWeekError.code !== "PGRST116") {
-        console.error("Error fetching current week:", currentWeekError);
-        throw currentWeekError;
-      }
+        .maybeSingle();
 
       const weekStartToUse = currentWeek?.week_start ?? weekStart ?? null;
 
-      // Capture old assignments so the RPC can avoid reproducing them.
-      let excludeAssignments: Record<string, string> | null = null;
-
-      if (currentWeek) {
-        const { data: oldAssignments } = await supabase
-          .from("chore_assignments")
-          .select("zone_id, assigned_to")
-          .eq("week_id", currentWeek.id);
-
-        if (oldAssignments && oldAssignments.length > 0) {
-          excludeAssignments = {};
-          for (const a of oldAssignments) {
-            excludeAssignments[a.zone_id] = a.assigned_to;
-          }
-        }
-
-        const { error: deleteAssignmentsError } = await supabase
-          .from("chore_assignments")
-          .delete()
-          .eq("week_id", currentWeek.id);
-        if (deleteAssignmentsError) {
-          console.error("Error deleting assignments:", deleteAssignmentsError);
-          throw deleteAssignmentsError;
-        }
-
-        const { error: deleteWeekError } = await supabase
-          .from("chore_weeks")
-          .delete()
-          .eq("id", currentWeek.id);
-        if (deleteWeekError) {
-          console.error("Error deleting week:", deleteWeekError);
-          throw deleteWeekError;
-        }
-      }
-
-      // Call RPC to generate new week
+      // Passing a non-null exclude map (even empty) signals the RPC to
+      // delete the existing week and regenerate. The RPC runs as
+      // SECURITY DEFINER, so it bypasses RLS that would otherwise block
+      // client-side deletes silently.
       const { data, error } = await supabase.rpc("generate_chore_week", {
         p_household_id: householdId,
         p_week_start: weekStartToUse,
         p_generated_by: user.id,
-        p_exclude_assignments: excludeAssignments,
+        p_exclude_assignments: {},
       });
       
       if (error) {
