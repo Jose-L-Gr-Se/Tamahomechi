@@ -1,6 +1,5 @@
 "use client";
 
-import { use } from "react";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/layout/top-bar";
 import { PageShell } from "@/components/layout/page-shell";
@@ -9,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { useEvent, useDeleteEvent } from "@/lib/hooks/use-events";
 import { ArrowLeft, Trash2 } from "lucide-react";
 
-export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function EventDetailPage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const router = useRouter();
   const { data: event, isLoading, error } = useEvent(id);
   const deleteEvent = useDeleteEvent();
