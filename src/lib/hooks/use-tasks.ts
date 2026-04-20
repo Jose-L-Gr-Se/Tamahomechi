@@ -97,6 +97,48 @@ export function useTasksForToday() {
   });
 }
 
+export function useTasksForDate(dateISO: string | null) {
+  const { householdId } = useHousehold();
+
+  return useQuery({
+    queryKey: ["tasks", householdId, "date", dateISO],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("household_id", householdId!)
+        .eq("due_date", dateISO!)
+        .order("priority", { ascending: false })
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data as Task[];
+    },
+    enabled: !!householdId && !!dateISO,
+  });
+}
+
+export function useTasksForMonth(year: number, month: number) {
+  const { householdId } = useHousehold();
+  const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const endDate = format(new Date(year, month + 1, 0), "yyyy-MM-dd");
+
+  return useQuery({
+    queryKey: ["tasks", householdId, "month", year, month],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("id, due_date")
+        .eq("household_id", householdId!)
+        .eq("is_completed", false)
+        .gte("due_date", startDate)
+        .lte("due_date", endDate);
+      if (error) throw error;
+      return data as { id: string; due_date: string }[];
+    },
+    enabled: !!householdId,
+  });
+}
+
 export function useWeeklyLoad() {
   const { householdId, members } = useHousehold();
   const { start, end } = getWeekRange();
