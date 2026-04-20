@@ -298,6 +298,24 @@ export function useRegenerateChoreWeek() {
   });
 }
 
+export function useUpdateChoreWeekEnd() {
+  const queryClient = useQueryClient();
+  const { householdId } = useHousehold();
+
+  return useMutation({
+    mutationFn: async ({ weekId, newWeekEnd }: { weekId: string; newWeekEnd: string }) => {
+      const { error } = await supabase
+        .from("chore_weeks")
+        .update({ week_end: newWeekEnd })
+        .eq("id", weekId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chore_week_current", householdId] });
+    },
+  });
+}
+
 export function useApplyPenalties() {
   const queryClient = useQueryClient();
   const { householdId } = useHousehold();

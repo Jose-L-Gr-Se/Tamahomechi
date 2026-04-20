@@ -6,18 +6,22 @@ import { PageShell } from "@/components/layout/page-shell";
 import { ChoreCard } from "@/components/tasks/chore-card";
 import { EmptyState } from "@/components/shared";
 import { Button } from "@/components/ui/button";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useCurrentChoreWeek,
   useChoreAssignments,
   useRegenerateChoreWeek,
   useApplyPenalties,
+  useUpdateChoreWeekEnd,
 } from "@/lib/hooks/use-chores";
 import { useHousehold } from "@/providers/household-provider";
 import { useAuth } from "@/providers/auth-provider";
-import { format, parseISO, differenceInDays } from "date-fns";
+import { format, parseISO, differenceInDays, addDays } from "date-fns";
 import { es } from "date-fns/locale";
-import { RefreshCw, AlertTriangle, Settings } from "lucide-react";
+import { RefreshCw, AlertTriangle, Settings, Pencil, CalendarClock } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils/cn";
 
@@ -28,10 +32,14 @@ export default function TareasPage() {
   const { user } = useAuth();
   const { members } = useHousehold();
 
+  const [showEditDeadline, setShowEditDeadline] = useState(false);
+  const [newDeadline, setNewDeadline] = useState("");
+
   const { data: currentWeek, isLoading: weekLoading } = useCurrentChoreWeek();
   const { data: assignments = [], isLoading: assignmentsLoading } = useChoreAssignments(currentWeek?.id ?? null);
   const regenerateWeek = useRegenerateChoreWeek();
   const applyPenalties = useApplyPenalties();
+  const updateWeekEnd = useUpdateChoreWeekEnd();
 
   const myAssignments = assignments.filter((a) => a.assigned_to === user?.id);
   const partnerAssignments = assignments.filter((a) => a.assigned_to !== user?.id);
@@ -113,9 +121,21 @@ export default function TareasPage() {
                 </span>
               )}
             </div>
-            <p className="text-xs text-muted-foreground">
-              {format(parseISO(currentWeek.week_start), "d MMM", { locale: es })} – {format(parseISO(currentWeek.week_end), "d MMM yyyy", { locale: es })}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-muted-foreground">
+                {format(parseISO(currentWeek.week_start), "d MMM", { locale: es })} – {format(parseISO(currentWeek.week_end), "d MMM yyyy", { locale: es })}
+              </p>
+              <button
+                onClick={() => {
+                  setNewDeadline(currentWeek.week_end);
+                  setShowEditDeadline(true);
+                }}
+                className="p-1 rounded hover:bg-accent text-muted-foreground"
+                title="Cambiar fecha límite"
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
+            </div>
 
             {/* Progress bar mis tareas */}
             {myTotal > 0 && (
@@ -223,6 +243,58 @@ export default function TareasPage() {
           </div>
         )}
       </PageShell>
+
+      {/* Drawer para editar fecha límite */}
+      <Drawer open={showEditDeadline} onOpenChange={setShowEditDeadline}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <CalendarClock className="h-5 w-5" />
+              Cambiar fecha límite
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-8 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              La semana actual termina el{" "}
+              <span className="font-medium text-foreground">
+                {currentWeek ? format(parseISO(currentWeek.week_end), "EEEE d 'de' MMMM", { locale: es }) : ""}
+              </span>. Puedes ajustar la fecha si por alguna circunstancia necesitas más o menos tiempo.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="deadline-date">Nueva fecha límite</Label>
+              <Input
+                id="deadline-date"
+                type="date"
+                value={newDeadline}
+                min={currentWeek?.week_start}
+                onChange={(e) => setNewDeadline(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="ghost"
+                className="flex-1"
+                onClick={() => setShowEditDeadline(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={!newDeadline || !currentWeek || updateWeekEnd.isPending}
+                onClick={() => {
+                  if (!currentWeek || !newDeadline) return;
+                  updateWeekEnd.mutate(
+                    { weekId: currentWeek.id, newWeekEnd: newDeadline },
+                    { onSuccess: () => setShowEditDeadline(false) }
+                  );
+                }}
+              >
+                {updateWeekEnd.isPending ? "Guardando..." : "Guardar"}
+              </Button>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }

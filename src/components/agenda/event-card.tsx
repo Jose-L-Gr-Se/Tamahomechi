@@ -43,12 +43,23 @@ export function EventCard({ event }: EventCardProps) {
 // ---- Calendar Month View ----
 interface CalendarMonthProps {
   events: Event[];
+  taskDays?: Set<number>;
   year: number;
   month: number;
   onChangeMonth: (year: number, month: number) => void;
+  selectedDay?: number | null;
+  onSelectDay?: (day: number | null) => void;
 }
 
-export function CalendarMonth({ events, year, month, onChangeMonth }: CalendarMonthProps) {
+export function CalendarMonth({
+  events,
+  taskDays,
+  year,
+  month,
+  onChangeMonth,
+  selectedDay,
+  onSelectDay,
+}: CalendarMonthProps) {
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
   const daysInMonth = lastDay.getDate();
@@ -65,11 +76,13 @@ export function CalendarMonth({ events, year, month, onChangeMonth }: CalendarMo
   const prevMonth = () => {
     const d = new Date(year, month - 1, 1);
     onChangeMonth(d.getFullYear(), d.getMonth());
+    onSelectDay?.(null);
   };
 
   const nextMonth = () => {
     const d = new Date(year, month + 1, 1);
     onChangeMonth(d.getFullYear(), d.getMonth());
+    onSelectDay?.(null);
   };
 
   const cells: (number | null)[] = [];
@@ -101,23 +114,31 @@ export function CalendarMonth({ events, year, month, onChangeMonth }: CalendarMo
         {cells.map((day, i) => {
           if (day === null) return <div key={`empty-${i}`} />;
           const isToday = isCurrentMonth && day === today.getDate();
+          const isSelected = selectedDay === day;
           const hasEvent = eventDays.has(day);
+          const hasTask = taskDays?.has(day) ?? false;
 
           return (
-            <div key={day} className="flex flex-col items-center py-1.5">
+            <button
+              key={day}
+              onClick={() => onSelectDay?.(isSelected ? null : day)}
+              className="flex flex-col items-center py-1.5 w-full"
+            >
               <span
                 className={cn(
-                  "text-xs w-7 h-7 flex items-center justify-center rounded-full",
-                  isToday && "bg-primary text-primary-foreground font-bold",
-                  !isToday && "text-foreground"
+                  "text-xs w-7 h-7 flex items-center justify-center rounded-full transition-colors",
+                  isSelected && "bg-primary text-primary-foreground font-bold",
+                  !isSelected && isToday && "bg-primary/20 text-primary font-bold",
+                  !isSelected && !isToday && "text-foreground hover:bg-accent"
                 )}
               >
                 {day}
               </span>
-              {hasEvent && (
-                <div className="w-1 h-1 rounded-full bg-agenda mt-0.5" />
-              )}
-            </div>
+              <div className="flex gap-0.5 mt-0.5 h-1">
+                {hasEvent && <div className="w-1 h-1 rounded-full bg-agenda" />}
+                {hasTask && <div className="w-1 h-1 rounded-full bg-primary" />}
+              </div>
+            </button>
           );
         })}
       </div>
