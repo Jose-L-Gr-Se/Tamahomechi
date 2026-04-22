@@ -7,6 +7,7 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { Calendar } from "./calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 import { cn } from "@/lib/utils/cn";
+import type { DateUrgency } from "@/lib/utils/dates";
 
 interface DatePickerProps {
   /** ISO date string (yyyy-MM-dd) or empty string */
@@ -19,6 +20,8 @@ interface DatePickerProps {
   showShortcuts?: boolean;
   /** Render as compact chip (used inline in cards) */
   compact?: boolean;
+  /** Controls chip colour in compact mode */
+  urgency?: DateUrgency;
 }
 
 function toISO(date: Date): string {
@@ -49,6 +52,13 @@ function displayLabel(d: Date): string {
   return format(d, "d MMM", { locale: es });
 }
 
+const compactColors: Record<NonNullable<DateUrgency>, string> = {
+  overdue: "text-destructive font-semibold hover:bg-destructive/10",
+  today:   "text-primary font-semibold hover:bg-primary/10",
+  soon:    "text-foreground hover:bg-accent",
+  normal:  "text-muted-foreground hover:bg-accent hover:text-foreground",
+};
+
 export function DatePicker({
   value,
   onChange,
@@ -57,6 +67,7 @@ export function DatePicker({
   className,
   showShortcuts = true,
   compact = false,
+  urgency = "normal",
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
   const selected = parseValue(value);
@@ -81,12 +92,15 @@ export function DatePicker({
           type="button"
           className={cn(
             compact
-              ? "inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-1.5 py-0.5 transition-colors"
+              ? cn("inline-flex items-center gap-1 text-xs rounded-md px-1.5 py-0.5 transition-colors", compactColors[urgency])
               : "flex h-10 w-full items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm text-left hover:bg-accent transition-colors",
             className
           )}
         >
-          <CalendarIcon className={cn(compact ? "h-3 w-3" : "h-4 w-4 text-muted-foreground")} />
+          <CalendarIcon className={cn(
+            compact ? "h-3 w-3" : "h-4 w-4 text-muted-foreground",
+            compact && urgency === "overdue" && "text-destructive"
+          )} />
           <span className={cn(!selected && !compact && "text-muted-foreground")}>
             {selected ? displayLabel(selected) : placeholder}
           </span>
