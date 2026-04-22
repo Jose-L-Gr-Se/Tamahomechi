@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -7,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { useHousehold } from "@/providers/household-provider";
 import { useCreateEvent, useUpdateEvent } from "@/lib/hooks/use-events";
-import { EVENT_TYPES, REMINDER_OPTIONS } from "@/lib/constants";
+import { EVENT_TYPES } from "@/lib/constants";
 import type { Event } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
@@ -67,6 +70,7 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
   const isEditing = !!event;
+  const titleRef = useRef<HTMLInputElement | null>(null);
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventSchema),
@@ -74,7 +78,7 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
       title: event?.title ?? "",
       description: event?.description ?? "",
       event_type: event?.event_type ?? "otro",
-      date: event?.starts_at ? toDateString(event.starts_at) : "",
+      date: event?.starts_at ? toDateString(event.starts_at) : format(new Date(), "yyyy-MM-dd"),
       time: event?.starts_at ? toTimeString(event.starts_at) : "12:00",
       all_day: event?.all_day ?? false,
       assigned_to: event?.assigned_to ?? null,
@@ -83,6 +87,18 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
   });
 
   const allDay = form.watch("all_day");
+  const date = form.watch("date");
+  const time = form.watch("time");
+
+  // Defer focus until after Drawer animation: avoids iOS Safari keyboard
+  // pushing the form contents off-screen and stealing focus mid-transition.
+  useEffect(() => {
+    if (isEditing) return;
+    const t = setTimeout(() => {
+      titleRef.current?.focus();
+    }, 350);
+    return () => clearTimeout(t);
+  }, [isEditing]);
 
   const onSubmit = (values: EventFormValues) => {
     const starts_at = toISOString(values.date, values.time ?? "12:00", values.all_day);
@@ -131,16 +147,24 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
     { value: 4320, label: "3 días antes" },
   ];
 
+  const titleReg = form.register("title");
+
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pb-4">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
 
       {/* Título */}
       <div className="space-y-1.5">
-        <Label>Título</Label>
+        <Label htmlFor="event-title">Título</Label>
         <Input
+          id="event-title"
           placeholder="Cita, reunión, recordatorio..."
-          autoFocus
-          {...form.register("title")}
+          autoComplete="off"
+          enterKeyHint="next"
+          {...titleReg}
+          ref={(el) => {
+            titleReg.ref(el);
+            titleRef.current = el;
+          }}
         />
         {form.formState.errors.title && (
           <p className="text-xs text-destructive">{form.formState.errors.title.message}</p>
@@ -167,46 +191,55 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
         </Select>
       </div>
 
-      {/* Todo el día */}
-      <div className="flex items-center justify-between py-1">
-        <Label>Todo el día</Label>
-        <button
-          type="button"
-          onClick={() => form.setValue("all_day", !allDay)}
-          className={cn(
-            "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-            allDay ? "bg-primary" : "bg-muted"
-          )}
-        >
-          <span className={cn(
-            "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-            allDay ? "translate-x-6" : "translate-x-1"
-          )} />
-        </button>
-      </div>
+      {/* Fecha + hora juntos para mejor flujo */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label>Cuándo</Label>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !allDay;
+              form.setValue("all_day", next);
+              if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+                navigator.vibrate?.(10);
+              }
+            }}
+            className={cn(
+              "inline-flex items-center gap-2 text-xs font-medium px-2.5 py-1 rounded-full transition-colors",
+              allDay
+                ? "bg-primary text-primary-foreground"
+                : "bg-secondary text-secondary-foreground"
+            )}
+            aria-pressed={allDay}
+          >
+            <span
+              className={cn(
+                "h-2 w-2 rounded-full",
+                allDay ? "bg-primary-foreground" : "bg-muted-foreground/40"
+              )}
+            />
+            Todo el día
+          </button>
+        </div>
 
-      {/* Fecha */}
-      <div className="space-y-1.5">
-        <Label>Fecha</Label>
-        <Input
-          type="date"
-          {...form.register("date")}
-        />
+        <div className={cn("grid gap-2", !allDay && "grid-cols-[1fr_auto]")}>
+          <DatePicker
+            value={date}
+            onChange={(v) => form.setValue("date", v, { shouldValidate: true })}
+            placeholder="Selecciona fecha"
+          />
+          {!allDay && (
+            <TimePicker
+              value={time || "12:00"}
+              onChange={(v) => form.setValue("time", v)}
+            />
+          )}
+        </div>
+
         {form.formState.errors.date && (
           <p className="text-xs text-destructive">{form.formState.errors.date.message}</p>
         )}
       </div>
-
-      {/* Hora */}
-      {!allDay && (
-        <div className="space-y-1.5">
-          <Label>Hora</Label>
-          <Input
-            type="time"
-            {...form.register("time")}
-          />
-        </div>
-      )}
 
       {/* Para quién */}
       <div className="space-y-1.5">
@@ -218,7 +251,7 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
               type="button"
               onClick={() => form.setValue("assigned_to", opt.id)}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border transition-colors",
+                "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border transition-colors active:scale-[0.98]",
                 form.watch("assigned_to") === opt.id
                   ? "border-primary bg-primary/5 text-primary font-medium"
                   : "border-input text-muted-foreground"
@@ -255,18 +288,19 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
 
       {/* Notas */}
       <div className="space-y-1.5">
-        <Label>
+        <Label htmlFor="event-notes">
           Notas{" "}
           <span className="text-muted-foreground font-normal">(opcional)</span>
         </Label>
         <textarea
+          id="event-notes"
           className="flex min-h-[60px] w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           placeholder="Dirección, qué llevar..."
           {...form.register("description")}
         />
       </div>
 
-      <Button type="submit" className="w-full" disabled={isPending}>
+      <Button type="submit" className="w-full h-11" disabled={isPending}>
         {isPending ? "Guardando..." : isEditing ? "Guardar cambios" : "Crear evento"}
       </Button>
     </form>

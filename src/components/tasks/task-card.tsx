@@ -3,13 +3,14 @@
 import { cn } from "@/lib/utils/cn";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { DatePicker } from "@/components/ui/date-picker";
 import { UserAvatar } from "@/components/shared";
-import { useCompleteTask } from "@/lib/hooks/use-tasks";
+import { useCompleteTask, useUpdateTask } from "@/lib/hooks/use-tasks";
 import { useHousehold } from "@/providers/household-provider";
 import { formatDate } from "@/lib/utils/dates";
 import type { Task } from "@/lib/types";
 import Link from "next/link";
-import { RotateCw } from "lucide-react";
+import { RotateCw, ArrowLeftRight, CalendarPlus } from "lucide-react";
 
 interface TaskCardProps {
   task: Task;
@@ -19,8 +20,10 @@ interface TaskCardProps {
 
 export function TaskCard({ task, compact }: TaskCardProps) {
   const completeTask = useCompleteTask();
+  const updateTask = useUpdateTask();
   const { members } = useHousehold();
   const assignee = members.find((m) => m.id === task.assigned_to);
+  const partner = members.find((m) => m.id !== task.assigned_to);
 
   const handleCheck = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -28,6 +31,23 @@ export function TaskCard({ task, compact }: TaskCardProps) {
     if (!task.is_completed) {
       completeTask.mutate(task.id);
     }
+  };
+
+  const handleReassign = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!partner) return;
+    updateTask.mutate({ id: task.id, assigned_to: partner.id });
+  };
+
+  const handleChangeDate = (newDate: string) => {
+    updateTask.mutate({ id: task.id, due_date: newDate });
+  };
+
+  // The card body is wrapped in Link (when not compact); inline action buttons
+  // have to stop propagation to avoid navigating when the user just edits a chip.
+  const stop = (e: React.MouseEvent | React.PointerEvent) => {
+    e.stopPropagation();
   };
 
   const content = (
@@ -52,9 +72,26 @@ export function TaskCard({ task, compact }: TaskCardProps) {
         <p className={cn("text-sm font-medium leading-snug", task.is_completed && "line-through text-muted-foreground")}>
           {task.title}
         </p>
-        <div className="flex items-center gap-2 mt-1 flex-wrap">
-          {task.due_date && (
-            <span className="text-xs text-muted-foreground">{formatDate(task.due_date)}</span>
+        <div className="flex items-center gap-1.5 mt-1 flex-wrap" onPointerDown={stop} onClick={stop}>
+          {!task.is_completed ? (
+            task.due_date ? (
+              <DatePicker
+                value={task.due_date}
+                onChange={handleChangeDate}
+                compact
+              />
+            ) : (
+              <DatePicker
+                value=""
+                onChange={handleChangeDate}
+                compact
+                placeholder="Añadir fecha"
+              />
+            )
+          ) : (
+            task.due_date && (
+              <span className="text-xs text-muted-foreground">{formatDate(task.due_date)}</span>
+            )
           )}
           {task.priority === "urgent" && (
             <Badge variant="urgent" className="text-[10px] px-1.5 py-0">Urgente</Badge>
@@ -62,10 +99,27 @@ export function TaskCard({ task, compact }: TaskCardProps) {
           {task.recurrence_id && (
             <RotateCw className="h-3 w-3 text-muted-foreground" />
           )}
+          {!task.due_date && !task.is_completed && (
+            <CalendarPlus className="h-3 w-3 text-muted-foreground/60" />
+          )}
         </div>
       </div>
 
-      <UserAvatar member={assignee} size="sm" />
+      <div className="flex items-center gap-1 shrink-0">
+        {!task.is_completed && partner && (
+          <button
+            type="button"
+            onClick={handleReassign}
+            disabled={updateTask.isPending}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            title={`Pasar a ${partner.display_name}`}
+            aria-label={`Pasar a ${partner.display_name}`}
+          >
+            <ArrowLeftRight className="h-3.5 w-3.5" />
+          </button>
+        )}
+        <UserAvatar member={assignee} size="sm" />
+      </div>
     </div>
   );
 
