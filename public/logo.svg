@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Tamahomechi">
+  <!-- Warm cream background -->
+  <rect width="512" height="512" rx="112" fill="#F7F2EB"/>
+
+  <!-- Soft glow behind house -->
+  <circle cx="256" cy="280" r="160" fill="#EFE3D2"/>
+
+  <!-- House silhouette -->
+  <g transform="translate(256 264)">
+    <!-- Roof + body as a single warm shape -->
+    <path
+      d="M 0 -130
+         L 130 -10
+         Q 138 -3 138 8
+         L 138 120
+         Q 138 138 120 138
+         L -120 138
+         Q -138 138 -138 120
+         L -138 8
+         Q -138 -3 -130 -10 Z"
+      fill="#C06A3E"
+    />
+
+    <!-- Chimney -->
+    <rect x="58" y="-94" width="28" height="44" rx="4" fill="#A8552D"/>
+
+    <!-- Door -->
+    <path
+      d="M -32 138 L -32 50 Q -32 32 -14 32 L 14 32 Q 32 32 32 50 L 32 138 Z"
+      fill="#F7F2EB"
+    />
+    <circle cx="18" cy="92" r="3.5" fill="#C06A3E"/>
+
+    <!-- Heart window above the door -->
+    <g transform="translate(0 -28)">
+      <path
+        d="M 0 22
+           C -22 6 -34 -8 -34 -22
+           C -34 -34 -22 -42 -12 -42
+           C -4 -42 0 -36 0 -30
+           C 0 -36 4 -42 12 -42
+           C 22 -42 34 -34 34 -22
+           C 34 -8 22 6 0 22 Z"
+        fill="#F7F2EB"
+      />
+      <path
+        d="M 0 14
+           C -14 4 -22 -6 -22 -16
+           C -22 -24 -14 -30 -8 -30
+           C -3 -30 0 -27 0 -23
+           C 0 -27 3 -30 8 -30
+           C 14 -30 22 -24 22 -16
+           C 22 -6 14 4 0 14 Z"
+        fill="#E04A4A"
+      />
+    </g>
+  </g>
+</svg>

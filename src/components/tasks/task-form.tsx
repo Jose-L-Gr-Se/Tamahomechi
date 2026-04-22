@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DatePicker } from "@/components/ui/date-picker";
 import { useHousehold } from "@/providers/household-provider";
 import { useCreateTask, useUpdateTask } from "@/lib/hooks/use-tasks";
 import { TASK_CATEGORIES, FREQUENCIES, DAYS_OF_WEEK } from "@/lib/constants";
@@ -131,10 +132,17 @@ export function TaskForm({ task, onSuccess }: TaskFormProps) {
         </div>
       </div>
 
-      {/* Due date */}
+      {/* Due date — esta es la fecha LÍMITE de la tarea */}
       <div className="space-y-1.5">
-        <Label>Fecha</Label>
-        <Input type="date" {...form.register("due_date")} />
+        <Label>Fecha límite</Label>
+        <DatePicker
+          value={form.watch("due_date") ?? ""}
+          onChange={(v) => form.setValue("due_date", v)}
+          placeholder="Sin fecha"
+        />
+        <p className="text-[11px] text-muted-foreground">
+          Día tope para tenerla hecha. Puedes moverla cuando quieras desde la lista.
+        </p>
       </div>
 
       {/* Assigned to */}

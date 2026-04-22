@@ -25,7 +25,6 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Tamahomechi",
-    startupImage: "/icons/icon-512.png",
   },
 };
 
@@ -41,9 +40,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={`${sans.variable} ${display.variable}`}>
-      <head>
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-icon.png" />
-      </head>
+      <head />
+      {/* Next.js auto-emits <link rel="icon"> from app/icon.tsx and
+          <link rel="apple-touch-icon"> from app/apple-icon.tsx. */}
       <body className="min-h-dvh overscroll-none">
         <QueryProvider>
           <AuthProvider>
