@@ -53,6 +53,22 @@ export function toISODate(date: Date): string {
   return format(date, "yyyy-MM-dd");
 }
 
+/** True when the date is strictly before today (past its limit). */
+export function isOverdue(dateStr: string): boolean {
+  return isBefore(parseISO(dateStr), startOfDay(new Date()));
+}
+
+/** "Urgency level" of a due date for visual styling purposes. */
+export type DateUrgency = "overdue" | "today" | "soon" | "normal";
+
+export function getDateUrgency(dateStr: string): DateUrgency {
+  const d = parseISO(dateStr);
+  if (isBefore(d, startOfDay(new Date()))) return "overdue";
+  if (isToday(d)) return "today";
+  if (isTomorrow(d) || isThisWeek(d, { weekStartsOn: 1 })) return "soon";
+  return "normal";
+}
+
 export function groupEventsByDay(events: Array<{ starts_at: string }>) {
   const groups: { label: string; items: typeof events }[] = [];
   const todayItems = events.filter((e) => isToday(parseISO(e.starts_at)));
