@@ -7,14 +7,13 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { UserAvatar } from "@/components/shared";
 import { useCompleteTask, useUpdateTask } from "@/lib/hooks/use-tasks";
 import { useHousehold } from "@/providers/household-provider";
-import { formatDate } from "@/lib/utils/dates";
+import { formatDate, getDateUrgency } from "@/lib/utils/dates";
 import type { Task } from "@/lib/types";
 import Link from "next/link";
-import { RotateCw, ArrowLeftRight, CalendarPlus } from "lucide-react";
+import { RotateCw, ArrowLeftRight, CalendarPlus, Clock } from "lucide-react";
 
 interface TaskCardProps {
   task: Task;
-  /** If true, renders as a compact card without link behavior */
   compact?: boolean;
 }
 
@@ -25,12 +24,17 @@ export function TaskCard({ task, compact }: TaskCardProps) {
   const assignee = members.find((m) => m.id === task.assigned_to);
   const partner = members.find((m) => m.id !== task.assigned_to);
 
+  const urgency = (!task.is_completed && task.due_date)
+    ? getDateUrgency(task.due_date)
+    : "normal";
+
+  const isOverdue = urgency === "overdue";
+  const isDueToday = urgency === "today";
+
   const handleCheck = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!task.is_completed) {
-      completeTask.mutate(task.id);
-    }
+    if (!task.is_completed) completeTask.mutate(task.id);
   };
 
   const handleReassign = (e: React.MouseEvent) => {
@@ -44,41 +48,66 @@ export function TaskCard({ task, compact }: TaskCardProps) {
     updateTask.mutate({ id: task.id, due_date: newDate });
   };
 
-  // The card body is wrapped in Link (when not compact); inline action buttons
-  // have to stop propagation to avoid navigating when the user just edits a chip.
-  const stop = (e: React.MouseEvent | React.PointerEvent) => {
-    e.stopPropagation();
-  };
+  const stop = (e: React.MouseEvent | React.PointerEvent) => e.stopPropagation();
 
   const content = (
     <div
       className={cn(
-        "flex items-start gap-3 p-3 rounded-xl transition-all",
-        task.is_completed ? "opacity-50" : "bg-card",
-        !compact && "active:bg-accent"
+        "flex items-start gap-3 p-3 rounded-xl border transition-all",
+        task.is_completed
+          ? "opacity-50 border-transparent bg-card"
+          : isOverdue
+          ? "border-destructive/30 bg-destructive/[0.04]"
+          : isDueToday
+          ? "border-primary/25 bg-card"
+          : "border-transparent bg-card",
+        // Feedback táctil sólo en modo link (no compact)
+        !task.is_completed && !compact && (
+          isOverdue ? "active:bg-destructive/[0.07]" : "active:bg-accent"
+        )
       )}
     >
-      <div className="pt-0.5" onClick={handleCheck}>
+      {/* Checkbox */}
+      <div className="pt-0.5 shrink-0" onClick={handleCheck}>
         <Checkbox
           checked={task.is_completed}
           className={cn(
             task.is_completed && "animate-check-bounce",
-            task.priority === "urgent" && !task.is_completed && "border-urgent"
+            task.priority === "urgent" && !task.is_completed && "border-urgent",
+            isOverdue && !task.is_completed && "border-destructive/60"
           )}
         />
       </div>
 
+      {/* Main content */}
       <div className="flex-1 min-w-0">
-        <p className={cn("text-sm font-medium leading-snug", task.is_completed && "line-through text-muted-foreground")}>
-          {task.title}
-        </p>
-        <div className="flex items-center gap-1.5 mt-1 flex-wrap" onPointerDown={stop} onClick={stop}>
+        {/* Title row */}
+        <div className="flex items-center gap-1.5">
+          {isOverdue && !task.is_completed && (
+            <Clock className="h-3 w-3 text-destructive shrink-0" />
+          )}
+          <p className={cn(
+            "text-sm font-medium leading-snug",
+            task.is_completed && "line-through text-muted-foreground",
+            isOverdue && !task.is_completed && "text-destructive/90"
+          )}>
+            {task.title}
+          </p>
+        </div>
+
+        {/* Chips row — date + badges */}
+        <div
+          className="flex items-center gap-1.5 mt-1 flex-wrap"
+          onPointerDown={stop}
+          onClick={stop}
+        >
           {!task.is_completed ? (
             task.due_date ? (
               <DatePicker
                 value={task.due_date}
                 onChange={handleChangeDate}
                 compact
+                urgency={urgency}
               />
             ) : (
               <DatePicker
@@ -89,10 +118,14 @@ export function TaskCard({ task, compact }: TaskCardProps) {
               />
             )
           ) : (
+            // Tarea completada: fecha estática sin popover
             task.due_date && (
-              <span className="text-xs text-muted-foreground">{formatDate(task.due_date)}</span>
+              <span className="text-xs text-muted-foreground">
+                {formatDate(task.due_date)}
+              </span>
             )
           )}
+
           {task.priority === "urgent" && (
             <Badge variant="urgent" className="text-[10px] px-1.5 py-0">Urgente</Badge>
           )}
@@ -100,11 +133,17 @@ export function TaskCard({ task, compact }: TaskCardProps) {
             <RotateCw className="h-3 w-3 text-muted-foreground" />
           )}
           {!task.due_date && !task.is_completed && (
-            <CalendarPlus className="h-3 w-3 text-muted-foreground/60" />
+            <CalendarPlus className="h-3 w-3 text-muted-foreground/50" />
           )}
         </div>
+
+        {/* Mensaje "vencida hace X días" bajo el chip cuando llevan >1d de retraso */}
+        {isOverdue && !task.is_completed && task.due_date && (
+          <OverdueLabel dateStr={task.due_date} />
+        )}
       </div>
 
+      {/* Right actions */}
       <div className="flex items-center gap-1 shrink-0">
         {!task.is_completed && partner && (
           <button
@@ -129,5 +168,21 @@ export function TaskCard({ task, compact }: TaskCardProps) {
     <Link href={`/tareas/${task.id}`} className="block">
       {content}
     </Link>
+  );
+}
+
+/** Muestra cuántos días lleva vencida la tarea, de forma compacta. */
+function OverdueLabel({ dateStr }: { dateStr: string }) {
+  const d = new Date(dateStr + "T00:00:00");
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((today.getTime() - d.getTime()) / 86400000);
+
+  if (days <= 0) return null;
+
+  return (
+    <span className="text-[10px] text-destructive/70 font-medium">
+      {days === 1 ? "Venció ayer" : `Vencida hace ${days} días`}
+    </span>
   );
 }
