@@ -294,9 +294,18 @@ export function EventForm({ event, onSuccess }: EventFormProps) {
         </Label>
         <textarea
           id="event-notes"
-          className="flex min-h-[60px] w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          rows={3}
+          className="flex min-h-[72px] w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           placeholder="Dirección, qué llevar..."
           {...form.register("description")}
+          onFocus={(e) => {
+            // When the mobile keyboard opens, scroll the textarea into view
+            // inside its drawer so the user can see what they're typing.
+            const el = e.currentTarget;
+            setTimeout(() => {
+              el.scrollIntoView({ block: "center", behavior: "smooth" });
+            }, 300);
+          }}
         />
       </div>
 
