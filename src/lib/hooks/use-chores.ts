@@ -255,38 +255,49 @@ export function useRegenerateChoreWeek() {
         throw new Error("Household or user not found");
       }
 
-      // Look up the current week_start so the RPC regenerates the same slot.
-      const { data: currentWeek } = await supabase
+      // Chore weeks run Wed → Tue. The target week is always the one that
+      // *contains today*, i.e. the most recent Wednesday <= today. The client
+      // computes it explicitly so we don't depend on the RPC's fallback logic
+      // (which would jump to *next* Wednesday on Thu–Sun).
+      const targetWeekStart = weekStart ?? mostRecentWednesdayISO();
+
+      // Check whether the target week already exists.  If it does, we're
+      // regenerating *this* slot (delete + recreate rotated). If it doesn't
+      // (e.g. the DB only has an expired week from a previous cycle), we're
+      // creating a brand-new current week and must NOT pass an exclude map
+      // so the RPC doesn't try to delete anything.
+      const { data: existingTargetWeek } = await supabase
         .from("chore_weeks")
-        .select("week_start")
+        .select("id")
         .eq("household_id", householdId)
-        .order("week_start", { ascending: false })
-        .limit(1)
+        .eq("week_start", targetWeekStart)
         .maybeSingle();
 
-      const weekStartToUse = currentWeek?.week_start ?? weekStart ?? null;
-
-      // Passing a non-null exclude map (even empty) signals the RPC to
-      // delete the existing week and regenerate. The RPC runs as
-      // SECURITY DEFINER, so it bypasses RLS that would otherwise block
-      // client-side deletes silently.
-      const { data, error } = await supabase.rpc("generate_chore_week", {
+      const rpcArgs: {
+        p_household_id: string;
+        p_week_start: string;
+        p_generated_by: string;
+        p_exclude_assignments?: Record<string, string>;
+      } = {
         p_household_id: householdId,
-        p_week_start: weekStartToUse,
+        p_week_start: targetWeekStart,
         p_generated_by: user.id,
-        p_exclude_assignments: {},
-      });
-      
+      };
+
+      if (existingTargetWeek) {
+        rpcArgs.p_exclude_assignments = {};
+      }
+
+      const { data, error } = await supabase.rpc("generate_chore_week", rpcArgs);
+
       if (error) {
         console.error("Error generating chore week:", error);
         throw error;
       }
-      
-      console.log("New chore week generated:", data);
+
       return data;
     },
     onSuccess: () => {
-      // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ["chore_week_current"] });
       queryClient.invalidateQueries({ queryKey: ["chore_assignments"] });
       queryClient.invalidateQueries({ queryKey: ["chore_assignments_mine"] });
@@ -296,6 +307,19 @@ export function useRegenerateChoreWeek() {
       console.error("Chore regeneration failed:", error);
     },
   });
+}
+
+/** ISO date (yyyy-MM-dd) of the most recent Wednesday on/before today. */
+function mostRecentWednesdayISO(): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  // Sun=0, Mon=1, Tue=2, Wed=3, Thu=4, Fri=5, Sat=6
+  const daysBack = (today.getDay() + 7 - 3) % 7;
+  today.setDate(today.getDate() - daysBack);
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 export function useUpdateChoreWeekEnd() {
