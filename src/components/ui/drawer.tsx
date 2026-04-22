@@ -30,14 +30,21 @@ const DrawerContent = React.forwardRef<
     <DrawerPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed inset-x-0 bottom-0 z-50 mt-24 flex max-h-[calc(100svh-6rem)] flex-col overflow-y-auto rounded-t-2xl border bg-background",
+        "fixed inset-x-0 bottom-0 z-50 flex max-h-[92svh] flex-col rounded-t-2xl border bg-background",
         className
       )}
-      style={{ WebkitOverflowScrolling: "touch" }}
       {...props}
     >
-      <div className="mx-auto mt-3 h-1.5 w-12 rounded-full bg-muted" />
-      <div className="px-4 pt-4" style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}>
+      <div className="mx-auto mt-3 h-1.5 w-12 shrink-0 rounded-full bg-muted" />
+      {/* Inner scroll container — vaul treats this as the scroll region
+          and releases its drag gesture when the user scrolls inside it. */}
+      <div
+        className="flex-1 overflow-y-auto overscroll-contain px-4 pt-4"
+        style={{
+          paddingBottom: "calc(2rem + env(safe-area-inset-bottom))",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
         {children}
       </div>
     </DrawerPrimitive.Content>
